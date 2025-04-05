@@ -3,6 +3,7 @@
 # Create the player square
 import pygame
 import sys
+import threading
 from Computer import *
 
 # Initialize pygame
@@ -171,6 +172,13 @@ while running:
     
     # Cap the frame rate
     clock.tick(60)
+
+    threading.Thread(
+        target=create_xp_notification,
+        args=("Achievement Unlocked: You solved it!", 5),
+        daemon=True  # This lets it close cleanly when your main game ends
+    ).start()
+
 
 # Quit the game
 pygame.quit()
