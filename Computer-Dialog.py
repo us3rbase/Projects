@@ -1,6 +1,10 @@
 import tkinter as tk
+import time
 
-def create_xp_notification(message="Input Message Here"):
+
+
+def create_xp_notification(message="Input Message Here", duration = 10):
+    start_time = time.time()
     root = tk.Tk()
     root.title("Computer")
     root.configure(bg="#ece9d8")  # Beige XP background
@@ -16,7 +20,18 @@ def create_xp_notification(message="Input Message Here"):
     title_label = tk.Label(title_bar, text="Computer", bg=title_colour, fg="white", font=("Tahoma", 9, "bold"))
     title_label.pack(side=tk.LEFT, padx=5)
 
-    help_button = tk.Label(title_bar, text="?", bg=title_colour, fg="white", font=("Tahoma", 9, "bold"))
+    help_button = tk.Button(
+        title_bar,
+        text="?",
+        bg=title_colour,
+        fg="white",
+        font=("Tahoma", 9, "bold"),
+        bd=0,
+        activebackground=title_colour,
+        activeforeground="white",
+        command=root.destroy  # <-- this closes the window
+    )
+
     help_button.pack(side=tk.RIGHT, padx=5)
 
     # === Content Area ===
@@ -34,6 +49,7 @@ def create_xp_notification(message="Input Message Here"):
         root.geometry(f"{width}x{height}+100+100")
 
     auto_resize()
+    #root.after(duration * 1000, root.destroy)
 
     # === Allow dragging the window ===
     def start_move(event):
@@ -48,7 +64,9 @@ def create_xp_notification(message="Input Message Here"):
     title_bar.bind("<Button-1>", start_move)
     title_bar.bind("<B1-Motion>", do_move)
 
+
     root.mainloop()
 
+
 # Example usage:
-create_xp_notification("Got it! You're going for that classic Windows XP alert box look—blue title bar, bevel edges, beige content area. Nice choice.Since we're skipping the icons and going purely for layout/style, here's how you can recreate something very close using tkinter in Python:")
+create_xp_notification("hey gusy i got this working! it took me 2 hours 😭")
