@@ -5,6 +5,7 @@ import queue
 notification_queue = queue.Queue()
 xp_notification_window = None
 pygame_window_info = {"x": 0, "y": 0, "width": 0, "height": 0}
+pending_notifications = []  # Queue to store pending notifications
 
 def set_pygame_window_info(x, y, width, height):
     """Set the pygame window position and size to position notifications"""
@@ -16,13 +17,26 @@ def process_notification_queue():
     try:
         while not notification_queue.empty():
             message, duration = notification_queue.get_nowait()
-            _create_xp_notification_internal(message, duration)
+            # Add to pending notifications instead of displaying immediately
+            pending_notifications.append((message, duration))
     except Exception as e:
         print(f"Error processing notification: {e}")
+    
+    # Check if we need to display a notification
+    check_pending_notifications()
     
     # Schedule the next queue check
     if hasattr(process_notification_queue, "root") and process_notification_queue.root.winfo_exists():
         process_notification_queue.root.after(100, process_notification_queue)
+
+def check_pending_notifications():
+    """Check if there are pending notifications to display"""
+    global xp_notification_window
+    
+    # If there's no active notification and we have pending ones, show the next one
+    if (xp_notification_window is None or not xp_notification_window.winfo_exists()) and pending_notifications:
+        next_message, next_duration = pending_notifications.pop(0)
+        _create_xp_notification_internal(next_message, next_duration)
 
 def initialize_tkinter():
     """Initialize tkinter in the main thread"""
@@ -46,10 +60,6 @@ def create_xp_notification(message="Input Message Here", duration=10):
 def _create_xp_notification_internal(message="Input Message Here", duration=10):
     """Internal function to create the notification window"""
     global xp_notification_window
-
-    # Check if a notification is already open
-    if xp_notification_window is not None and xp_notification_window.winfo_exists():
-        return
 
     # Create a Toplevel window for the notification
     root = tk.Toplevel(process_notification_queue.root)
@@ -124,7 +134,7 @@ def _create_xp_notification_internal(message="Input Message Here", duration=10):
     root.after(50, position_notification)
 
     # Auto-close the window after `duration` seconds
-    root.after(duration * 1000, root.destroy)
+    root.after(duration * 1000, lambda: on_notification_closed(root))
 
     def start_move(event):
         root.x = event.x
@@ -143,3 +153,10 @@ def _create_xp_notification_internal(message="Input Message Here", duration=10):
         xp_notification_window = None
 
     root.bind("<Destroy>", on_destroy)
+
+def on_notification_closed(window):
+    """Handle notification closure and display next notification if available"""
+    window.destroy()
+    # Check for pending notifications after a short delay
+    if hasattr(process_notification_queue, "root") and process_notification_queue.root.winfo_exists():
+        process_notification_queue.root.after(200, check_pending_notifications)

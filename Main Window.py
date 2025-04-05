@@ -162,8 +162,8 @@ def dialog_create(message="", delay=1):
     cooldown_time = delay * 60
     key_cooldown = cooldown_time
         
-dialog_create("Test Dialog", 10)
-dialog_create("test dialog 2", 10)
+dialog_create("tehas", 3)
+dialog_create("test dialog 2", 4)
 
 while running:
     # Handle events
