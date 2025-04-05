@@ -3,7 +3,7 @@
 # Create the player square
 import pygame
 import sys
-import os
+from Computer import *
 
 # Initialize pygame
 pygame.init()
