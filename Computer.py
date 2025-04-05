@@ -1,20 +1,58 @@
 import tkinter as tk
+import queue
 
+# Queue for communication between threads
+notification_queue = queue.Queue()
 xp_notification_window = None
+pygame_window_info = {"x": 0, "y": 0, "width": 0, "height": 0}
+
+def set_pygame_window_info(x, y, width, height):
+    """Set the pygame window position and size to position notifications"""
+    global pygame_window_info
+    pygame_window_info = {"x": x, "y": y, "width": width, "height": height}
+
+def process_notification_queue():
+    """Process notifications from the queue on the main tkinter thread"""
+    try:
+        while not notification_queue.empty():
+            message, duration = notification_queue.get_nowait()
+            _create_xp_notification_internal(message, duration)
+    except Exception as e:
+        print(f"Error processing notification: {e}")
+    
+    # Schedule the next queue check
+    if hasattr(process_notification_queue, "root") and process_notification_queue.root.winfo_exists():
+        process_notification_queue.root.after(100, process_notification_queue)
+
+def initialize_tkinter():
+    """Initialize tkinter in the main thread"""
+    if not hasattr(process_notification_queue, "root"):
+        root = tk.Tk()
+        root.withdraw()  # Hide the main window
+        process_notification_queue.root = root
+        
+        # Start the queue processing
+        root.after(100, process_notification_queue)
+
+def update_tkinter():
+    """Update the tkinter event loop - call this from pygame main loop"""
+    if hasattr(process_notification_queue, "root") and process_notification_queue.root.winfo_exists():
+        process_notification_queue.root.update()
 
 def create_xp_notification(message="Input Message Here", duration=10):
+    """Queue a notification to be displayed by the tkinter thread"""
+    notification_queue.put((message, duration))
+
+def _create_xp_notification_internal(message="Input Message Here", duration=10):
+    """Internal function to create the notification window"""
     global xp_notification_window
 
-    # Check if a notification is already open.
+    # Check if a notification is already open
     if xp_notification_window is not None and xp_notification_window.winfo_exists():
         return
 
-    # If no main root exists, create one and hide it.
-    if not tk._default_root:
-        root_master = tk.Tk()
-        root_master.withdraw()  # Hide the main window
-    # Create a Toplevel window for the notification.
-    root = tk.Toplevel()
+    # Create a Toplevel window for the notification
+    root = tk.Toplevel(process_notification_queue.root)
     xp_notification_window = root
 
     root.title("Computer")
@@ -49,15 +87,43 @@ def create_xp_notification(message="Input Message Here", duration=10):
     message_label = tk.Label(content, text=message, bg="#ece9d8", font=("Tahoma", 9), justify="left", wraplength=280)
     message_label.pack(padx=15, pady=15)
 
-    def auto_resize():
-        message_label.update_idletasks()
-        width = message_label.winfo_reqwidth() + 40
-        height = message_label.winfo_reqheight() + 60
-        root.geometry(f"{width}x{height}+100+100")
+    # First update to get correct size
+    root.update_idletasks()
+    
+    def position_notification():
+        # Get the notification window size
+        width = root.winfo_width()
+        height = root.winfo_height()
+        
+        if width < 100:  # If width is too small, it hasn't been properly measured yet
+            width = message_label.winfo_reqwidth() + 40
+            height = message_label.winfo_reqheight() + 60
+        
+        # Calculate position to center directly under the pygame window
+        x = pygame_window_info["x"] + (pygame_window_info["width"] - width) // 2
+        y = pygame_window_info["y"] + pygame_window_info["height"] + 5  # 5px padding below pygame window
+        
+        # Ensure positive coordinates
+        x = max(0, x)
+        y = max(0, y)
+        
+        # Set the window geometry with explicit size and position
+        root.geometry(f"{width}x{height}+{x}+{y}")
+        
+        # Print debug info
+        print(f"Notification position: {x}, {y}, size: {width}x{height}")
+        print(f"Pygame window: {pygame_window_info}")
 
-    auto_resize()
+    # Set a default size first
+    message_label.update_idletasks()
+    width = message_label.winfo_reqwidth() + 40
+    height = message_label.winfo_reqheight() + 60
+    root.geometry(f"{width}x{height}")
+    
+    # Then position it correctly after a short delay to ensure size calculations are complete
+    root.after(50, position_notification)
 
-    # Auto-close the window after `duration` seconds.
+    # Auto-close the window after `duration` seconds
     root.after(duration * 1000, root.destroy)
 
     def start_move(event):
@@ -77,4 +143,3 @@ def create_xp_notification(message="Input Message Here", duration=10):
         xp_notification_window = None
 
     root.bind("<Destroy>", on_destroy)
-
