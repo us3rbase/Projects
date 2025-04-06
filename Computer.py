@@ -64,7 +64,8 @@ def _create_xp_notification_internal(message="Input Message Here", duration=10):
     # Create a Toplevel window for the notification
     root = tk.Toplevel(process_notification_queue.root)
     xp_notification_window = root
-    
+
+    root.withdraw()    
 
     root.title("Computer")
     root.configure(bg="#ece9d8")
@@ -120,6 +121,9 @@ def _create_xp_notification_internal(message="Input Message Here", duration=10):
         
         # Set the window geometry with explicit size and position
         root.geometry(f"{width}x{height}+{x}+{y}")
+        
+        # Make the window visible only after positioning
+        root.deiconify()
         
         # Print debug info
         print(f"Notification position: {x}, {y}, size: {width}x{height}")
