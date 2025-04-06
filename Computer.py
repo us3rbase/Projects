@@ -64,6 +64,7 @@ def _create_xp_notification_internal(message="Input Message Here", duration=10):
     # Create a Toplevel window for the notification
     root = tk.Toplevel(process_notification_queue.root)
     xp_notification_window = root
+    
 
     root.title("Computer")
     root.configure(bg="#ece9d8")
