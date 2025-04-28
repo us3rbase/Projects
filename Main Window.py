@@ -4,6 +4,7 @@ import pygame
 import sys
 import os
 from Computer import initialize_tkinter, create_xp_notification, update_tkinter, set_pygame_window_info
+from Dialog import dialog_create, tutorial_scene
 
 
 pygame.init()
@@ -82,8 +83,8 @@ class Player:
         #Define different padding
         self.padding_left = 205
         self.padding_right = 201
-        self.padding_top = 257
-        self.padding_bottom = 53
+        self.padding_top = 227
+        self.padding_bottom = 63
         
         #Try to load character image
         self.use_image = True
@@ -146,15 +147,7 @@ pygame.time.delay(100)
 window_x, window_y = get_window_position()
 set_pygame_window_info(window_x, window_y, WINDOW_WIDTH, WINDOW_HEIGHT)
 
-# Define a key cooldown to prevent multiple notifications
-
-def dialog_create(message="", delay=1):
-    create_xp_notification(message, delay)
-
-        
-dialog_create("This is a Test Dialog scene", 2)
-dialog_create("I hope this works", 2)
-dialog_create("yay", 3)
+tutorial_scene()
 
 while running:
     #Event Handler
