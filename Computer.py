@@ -16,9 +16,9 @@ def process_notification_queue():
     """Process notifications from the queue on the main tkinter thread"""
     try:
         while not notification_queue.empty():
-            message, duration = notification_queue.get_nowait()
+            sender, message, duration = notification_queue.get_nowait()
             # Add to pending notifications instead of displaying immediately
-            pending_notifications.append((message, duration))
+            pending_notifications.append((sender, message, duration))
     except Exception as e:
         print(f"Error processing notification: {e}")
     
@@ -35,8 +35,8 @@ def check_pending_notifications():
     
     # If there's no active notification and we have pending ones, show the next one
     if (xp_notification_window is None or not xp_notification_window.winfo_exists()) and pending_notifications:
-        next_message, next_duration = pending_notifications.pop(0)
-        _create_xp_notification_internal(next_message, next_duration)
+        next_sender, next_message, next_duration = pending_notifications.pop(0)
+        _create_xp_notification_internal(next_sender, next_message, next_duration)
 
 def initialize_tkinter():
     """Initialize tkinter in the main thread"""
@@ -53,11 +53,11 @@ def update_tkinter():
     if hasattr(process_notification_queue, "root") and process_notification_queue.root.winfo_exists():
         process_notification_queue.root.update()
 
-def create_xp_notification(message="Input Message Here", duration=10):
+def create_xp_notification(sender, message="Input Message Here", duration=10):
     """Queue a notification to be displayed by the tkinter thread"""
-    notification_queue.put((message, duration))
+    notification_queue.put((sender, message, duration))
 
-def _create_xp_notification_internal(message="Input Message Here", duration=10):
+def _create_xp_notification_internal(sender="Test", message="Input Message Here", duration=10):
     """Internal function to create the notification window"""
     global xp_notification_window
 
@@ -67,17 +67,17 @@ def _create_xp_notification_internal(message="Input Message Here", duration=10):
 
     root.withdraw()    
 
-    root.title("Computer")
+    root.title("Dialog")
     root.configure(bg="#ece9d8")
     root.resizable(False, False)
     root.overrideredirect(True)
 
-    title_colour = "#316AC5"
+    title_colour = "#000084"
 
     title_bar = tk.Frame(root, bg=title_colour, height=24)
     title_bar.pack(fill=tk.X, side=tk.TOP)
 
-    title_label = tk.Label(title_bar, text="Computer", bg=title_colour, fg="white", font=("Tahoma", 9, "bold"))
+    title_label = tk.Label(title_bar, text=sender, bg=title_colour, fg="white", font=("Tahoma", 9, "bold"))
     title_label.pack(side=tk.LEFT, padx=5)
 
     help_button = tk.Button(
