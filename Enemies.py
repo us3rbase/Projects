@@ -17,7 +17,7 @@ class Attack:
         self.is_active = True
         self.start_x = x
         self.start_time = pygame.time.get_ticks()
-        self.color = (255, 255, 255)  # White attack projectile
+        self.color = (255, 0, 0)  # White attack projectile
         
     def update(self):
         """Update attack position based on pattern"""
@@ -216,6 +216,6 @@ def start_fight_scene():
     dialog_create("Tut", "Move with WASD to dodge its attacks!", 3)
     dialog_create("Tut", "Press SPACE to attack it when your attack is ready!", 2)
     
-    # Return a delayed start time (8 seconds after all dialog)
-    # This gives enough time for all dialog to be read before the enemy appears
-    return pygame.time.get_ticks() + 8000
+    # Return a timestamp that marks when the enemy should actually spawn
+    # This timestamp will be approximately when the first dialog appears
+    return pygame.time.get_ticks() + 100  # Spawn almost immediately after dialog starts
