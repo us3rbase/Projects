@@ -68,7 +68,7 @@ class Player:
         self.width = CHAR_SIZE
         self.height = CHAR_SIZE
         self.speed = MOVEMENT_SPEED
-        self.health = 100
+        self.health = 30
         self.player_hit_cooldown = 0  # Invincibility frames after being hit
         
         self.padding_left = 205
@@ -155,12 +155,14 @@ class Player:
 # Game state variables
 class GameState:
     def __init__(self):
-        self.state = "tutorial"  # States: "tutorial", "exploration", "combat", "transition"
-        self.enemy_manager = None
+        self.state = "exploration"  # States: "tutorial", "exploration", "combat", "transition"
+        self.enemy_manager = EnemyManager(WINDOW_WIDTH, WINDOW_HEIGHT)  # Initialize from the start
         self.score = 0
         self.transition_timer = 0
         self.transition_target = None
         self.player_health = 100
+        self.tutorial_completed = False
+        self.enemy_spawned = False
         
     def start_transition(self, target_state, duration=60):
         """Start transition to a new state"""
@@ -178,8 +180,9 @@ class GameState:
                 
                 # Initialize the target state
                 if self.state == "combat":
-                    self.enemy_manager = EnemyManager(WINDOW_WIDTH, WINDOW_HEIGHT)
-                    self.enemy_manager.spawn_enemy(count=1)  # Just one enemy for Undertale style
+                    # We don't spawn the enemy here anymore
+                    # Enemy spawning is now controlled by the dialog timing
+                    pass
 
 player = Player()
 game_state = GameState()
@@ -187,8 +190,6 @@ game_state = GameState()
 clock = pygame.time.Clock()
 running = True
 
-player_needed = True
-previous_player_needed = player_needed
 current_background = load_fight_box()
 
 player.x = 333
@@ -209,22 +210,24 @@ while running:
     current_time = pygame.time.get_ticks()
     
     # Check if it's time to start the fight dialog
-    if game_state.state == "tutorial" and current_time >= start_fight_timer and enemy_spawn_timer is None:
+    if not game_state.tutorial_completed and current_time >= start_fight_timer and enemy_spawn_timer is None:
         enemy_spawn_timer = start_fight_scene()  # This shows dialog and returns when to spawn enemy
     
-    # Check if it's time to spawn the enemy
-    if game_state.state == "tutorial" and enemy_spawn_timer is not None and current_time >= enemy_spawn_timer:
-        game_state.start_transition("combat", 60)  # Transition to combat in 1 second
+    # Check if it's time to spawn the enemy - but don't actually spawn it yet
+    # Just mark the tutorial as completed and transition to combat
+    if not game_state.tutorial_completed and enemy_spawn_timer is not None and current_time >= enemy_spawn_timer:
+        game_state.state = "combat"  # Direct state change without transition
+        game_state.tutorial_completed = True
     
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE and game_state.state == "combat":
+            if event.key == pygame.K_SPACE:
                 if player.attack():
                     # Player attacks all enemies
-                    if game_state.enemy_manager:
+                    if game_state.state == "combat":
                         defeated = game_state.enemy_manager.player_attack(25)  # Deal 25 damage
                         
                         if defeated > 0:
@@ -238,22 +241,15 @@ while running:
     
     keys = pygame.key.get_pressed()
     
-    if previous_player_needed != player_needed:
-        if player_needed:
-            current_background = load_fight_box()
-        else:
-            current_background = load_background()
-        previous_player_needed = player_needed
-    
-    if player_needed and game_state.state == "combat":
-        if keys[pygame.K_a]:
-            player.move(dx=-player.speed)
-        if keys[pygame.K_d]:
-            player.move(dx=player.speed)
-        if keys[pygame.K_w]:
-            player.move(dy=-player.speed)
-        if keys[pygame.K_s]:
-            player.move(dy=player.speed)
+    # Always allow player movement regardless of game state
+    if keys[pygame.K_a]:
+        player.move(dx=-player.speed)
+    if keys[pygame.K_d]:
+        player.move(dx=player.speed)
+    if keys[pygame.K_w]:
+        player.move(dy=-player.speed)
+    if keys[pygame.K_s]:
+        player.move(dy=player.speed)
     
     if keys[pygame.K_ESCAPE]:
         running = False
@@ -262,7 +258,21 @@ while running:
     player.update()
     game_state.update()
     
-    if game_state.state == "combat" and game_state.enemy_manager:
+    if game_state.state == "combat":
+        # Check for the specific dialog cue to spawn enemy
+        current_dialog_text = ""
+        
+        # Look through the pending notifications in Computer.py to find the "Look! There's a virus!" message
+        # Unfortunately we can't directly access it, so we'll rely on timing instead
+        
+        # Only spawn the enemy if we've transitioned to combat but haven't spawned yet
+        if game_state.tutorial_completed and not game_state.enemy_spawned:
+            # Check if we've been in combat state for at least 3 seconds (since dialog was shown)
+            if pygame.time.get_ticks() - enemy_spawn_timer > 3000:
+                game_state.enemy_manager.spawn_enemy(count=1)
+                game_state.enemy_spawned = True
+                print("Enemy spawned after dialog!")
+        
         game_state.enemy_manager.update_enemies()
         
         # Check for collisions with enemy attacks
@@ -281,21 +291,21 @@ while running:
     else:
         screen.fill(WHITE)
     
-    if player_needed:
-        player.draw()
+    # Always draw the player
+    player.draw()
     
     # Draw enemies if in combat
-    if game_state.state == "combat" and game_state.enemy_manager:
+    if game_state.state == "combat":
         game_state.enemy_manager.draw_enemies(screen)
         
-        # Draw player health
-        font = pygame.font.SysFont(None, 24)
-        health_text = font.render(f"HP: {player.health}/100", True, (255, 255, 255))
-        screen.blit(health_text, (10, 10))
-        
-        # Draw score
-        score_text = font.render(f"Score: {game_state.score}", True, (255, 255, 255))
-        screen.blit(score_text, (10, 35))
+    # Always draw player stats
+    font = pygame.font.SysFont(None, 24)
+    health_text = font.render(f"HP: {player.health}/100", True, (255, 255, 255))
+    screen.blit(health_text, (10, 10))
+    
+    # Draw score
+    score_text = font.render(f"Score: {game_state.score}", True, (255, 255, 255))
+    screen.blit(score_text, (10, 35))
     
     pygame.display.flip()
     
