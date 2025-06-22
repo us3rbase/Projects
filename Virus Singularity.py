@@ -5,7 +5,7 @@ import sys
 import os
 import time
 from Computer import initialize_tkinter, create_xp_notification, update_tkinter, set_pygame_window_info
-from Dialog import dialog_create, tutorial_scene
+from Dialog import dialog_create, tutorial_scene, fight_1, skip_current_dialog
 from Enemies import Enemy, EnemyManager, start_fight_scene
 
 pygame.init()
@@ -68,7 +68,7 @@ class Player:
         self.width = CHAR_SIZE
         self.height = CHAR_SIZE
         self.speed = MOVEMENT_SPEED
-        self.health = 30
+        self.health = 50
         self.player_hit_cooldown = 0  # Invincibility frames after being hit
         
         self.padding_left = 205
@@ -155,34 +155,158 @@ class Player:
 # Game state variables
 class GameState:
     def __init__(self):
-        self.state = "exploration"  # States: "tutorial", "exploration", "combat", "transition"
-        self.enemy_manager = EnemyManager(WINDOW_WIDTH, WINDOW_HEIGHT)  # Initialize from the start
+        self.state = "tutorial"
+        self.tutorial_complete = False
+        self.combat_state = "idle"
+        self.last_attack_time = 0
+        self.attack_cooldown = 500  # 500ms cooldown between attacks
+        self.last_dialog_time = 0
+        self.dialog_active = False
+        self.death_timer = 0
         self.score = 0
-        self.transition_timer = 0
-        self.transition_target = None
-        self.player_health = 100
-        self.tutorial_completed = False
-        self.enemy_spawned = False
+        self.enemy_manager = EnemyManager(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.enemy_event_manager = None  # Initialize enemy_event_manager as None
+        self.player = Player()
+        self.background = pygame.image.load('background.jpg')
+        self.background = pygame.transform.scale(self.background, (WINDOW_WIDTH, WINDOW_HEIGHT))
+        self.fight_background = pygame.image.load('fight.jpg')
+        self.fight_background = pygame.transform.scale(self.fight_background, (WINDOW_WIDTH, WINDOW_HEIGHT))
+        self.font = pygame.font.Font(None, 36)
+        self.small_font = pygame.font.Font(None, 24)
+        self.tutorial_start_time = pygame.time.get_ticks()
+        self.tutorial_duration = 15000  # 15 seconds for tutorial
+        self.last_attack_window_time = 0
+        self.attack_window_duration = 1000  # 1 second attack window
+        self.last_attack_window_end = 0
+        self.attack_window_cooldown = 2000  # 2 seconds between attack windows
+        self.last_dialog_skip_time = 0
+        self.dialog_skip_cooldown = 200  # 200ms cooldown between dialog skips
+
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
+        mouse_buttons = pygame.mouse.get_pressed()
         
-    def start_transition(self, target_state, duration=60):
-        """Start transition to a new state"""
-        self.state = "transition"
-        self.transition_target = target_state
-        self.transition_timer = duration
-        
+        # Handle dialog skipping with Tab
+        if keys[pygame.K_TAB] and pygame.time.get_ticks() - self.last_dialog_skip_time > self.dialog_skip_cooldown:
+            if skip_current_dialog():
+                self.last_dialog_skip_time = pygame.time.get_ticks()
+                self.dialog_active = False
+                return
+
+        if self.state == "tutorial":
+            if keys[pygame.K_SPACE] or mouse_buttons[0]:  # Space or left click
+                self.tutorial_complete = True
+                self.state = "combat"
+                self.combat_state = "idle"
+                self.last_attack_time = pygame.time.get_ticks()
+                self.last_attack_window_time = pygame.time.get_ticks()
+                self.last_attack_window_end = pygame.time.get_ticks()
+                self.tutorial_start_time = pygame.time.get_ticks()
+                self.tutorial_duration = 15000
+                self.last_dialog_skip_time = pygame.time.get_ticks()
+                self.dialog_skip_cooldown = 200
+                self.last_dialog_time = pygame.time.get_ticks()
+                self.dialog_active = False
+                self.death_timer = 0
+                self.score = 0
+                self.enemy_manager = EnemyManager(WINDOW_WIDTH, WINDOW_HEIGHT)
+                self.player = Player()
+                return
+
+        if self.state == "combat":
+            # Handle player movement
+            if keys[pygame.K_w]:
+                self.player.move(0, -5)
+            if keys[pygame.K_s]:
+                self.player.move(0, 5)
+            if keys[pygame.K_a]:
+                self.player.move(-5, 0)
+            if keys[pygame.K_d]:
+                self.player.move(5, 0)
+
+            # Handle player attack with Space or left click
+            current_time = pygame.time.get_ticks()
+            if (keys[pygame.K_SPACE] or mouse_buttons[0]) and current_time - self.last_attack_time > self.attack_cooldown:
+                if self.combat_state == "attack_window":
+                    self.player.attack()
+                    self.last_attack_time = current_time
+                    # Check for enemy hit
+                    for enemy in self.enemy_manager.enemies:
+                        if enemy.is_active and self.player.attack_rect.colliderect(enemy.rect):
+                            enemy.take_damage(10)
+                            if not enemy.is_active:  # If enemy is defeated
+                                self.score += 100
+                                self.enemy_manager.enemies.remove(enemy)
+                                if not self.enemy_manager.enemies:  # If all enemies are defeated
+                                    self.state = "boss_fight"
+                                    self.combat_state = "idle"
+                                    self.last_attack_time = current_time
+                                    self.last_attack_window_time = current_time
+                                    self.last_attack_window_end = current_time
+                                    self.tutorial_start_time = current_time
+                                    self.tutorial_duration = 15000
+                                    self.last_dialog_skip_time = current_time
+                                    self.dialog_skip_cooldown = 200
+                                    self.last_dialog_time = current_time
+                                    self.dialog_active = False
+                                    self.death_timer = 0
+                                    self.score = 0
+                                    self.enemy_manager = EnemyManager(WINDOW_WIDTH, WINDOW_HEIGHT)
+                                    self.player = Player()
+                                    return
+
+        elif self.state == "boss_fight":
+            # Handle player movement
+            if keys[pygame.K_w]:
+                self.player.move(0, -5)
+            if keys[pygame.K_s]:
+                self.player.move(0, 5)
+            if keys[pygame.K_a]:
+                self.player.move(-5, 0)
+            if keys[pygame.K_d]:
+                self.player.move(5, 0)
+
+            # Handle player attack with Space or left click
+            current_time = pygame.time.get_ticks()
+            if (keys[pygame.K_SPACE] or mouse_buttons[0]) and current_time - self.last_attack_time > self.attack_cooldown:
+                if self.combat_state == "attack_window":
+                    self.player.attack()
+                    self.last_attack_time = current_time
+                    # Check for boss hit
+                    for enemy in self.enemy_manager.enemies:
+                        if enemy.is_active and self.player.attack_rect.colliderect(enemy.rect):
+                            enemy.take_damage(10)
+                            if not enemy.is_active:  # If boss is defeated
+                                self.score += 500
+                                self.enemy_manager.enemies.remove(enemy)
+                                self.state = "victory"
+                                return
+
+        elif self.state == "death":
+            if keys[pygame.K_SPACE] or mouse_buttons[0]:
+                self.state = "tutorial"
+                self.tutorial_complete = False
+                self.combat_state = "idle"
+                self.last_attack_time = pygame.time.get_ticks()
+                self.last_attack_window_time = pygame.time.get_ticks()
+                self.last_attack_window_end = pygame.time.get_ticks()
+                self.tutorial_start_time = pygame.time.get_ticks()
+                self.tutorial_duration = 15000
+                self.last_dialog_skip_time = pygame.time.get_ticks()
+                self.dialog_skip_cooldown = 200
+                self.last_dialog_time = pygame.time.get_ticks()
+                self.dialog_active = False
+                self.death_timer = 0
+                self.score = 0
+                self.enemy_manager = EnemyManager(WINDOW_WIDTH, WINDOW_HEIGHT)
+                self.player = Player()
+                return
+
     def update(self):
-        """Update game state"""
-        if self.state == "transition":
-            self.transition_timer -= 1
-            if self.transition_timer <= 0:
-                self.state = self.transition_target
-                self.transition_target = None
-                
-                # Initialize the target state
-                if self.state == "combat":
-                    # We don't spawn the enemy here anymore
-                    # Enemy spawning is now controlled by the dialog timing
-                    pass
+        """Update game state logic each frame."""
+        # You can add per-frame logic here if needed, or leave it as a placeholder for now.
+        # For now, just call handle_input to process input each frame.
+        self.handle_input()
 
 player = Player()
 game_state = GameState()
@@ -201,6 +325,7 @@ set_pygame_window_info(window_x, window_y, WINDOW_WIDTH, WINDOW_HEIGHT)
 
 # Run the tutorial scene
 tutorial_scene()
+fight_1()
 
 # Set up a timer to start the fight dialog after tutorial without freezing game
 start_fight_timer = pygame.time.get_ticks() + 1000  # Start fight dialog 1 second after tutorial
@@ -210,14 +335,14 @@ while running:
     current_time = pygame.time.get_ticks()
     
     # Check if it's time to start the fight dialog
-    if not game_state.tutorial_completed and current_time >= start_fight_timer and enemy_spawn_timer is None:
+    if not game_state.tutorial_complete and current_time >= start_fight_timer and enemy_spawn_timer is None:
         enemy_spawn_timer = start_fight_scene()  # This shows dialog and returns when to spawn enemy
     
     # Check if it's time to spawn the enemy - but don't actually spawn it yet
     # Just mark the tutorial as completed and transition to combat
-    if not game_state.tutorial_completed and enemy_spawn_timer is not None and current_time >= enemy_spawn_timer:
+    if not game_state.tutorial_complete and enemy_spawn_timer is not None and current_time >= enemy_spawn_timer:
         game_state.state = "combat"  # Direct state change without transition
-        game_state.tutorial_completed = True
+        game_state.tutorial_complete = True
     
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -235,9 +360,13 @@ while running:
                             print(f"Defeated {defeated} enemies! Score: {game_state.score}")
                             
                             if game_state.enemy_manager.count_active_enemies() == 0:
-                                dialog_create("Tut", "Great job! You defeated the virus!", 3)
-                                # Transition to next state after victory
-                                game_state.start_transition("exploration", 180)
+                                if not game_state.enemy_manager.is_boss_fight:
+                                    # Start boss fight sequence
+                                    game_state.enemy_manager.start_boss_fight()
+                                else:
+                                    # Boss defeated
+                                    dialog_create("Tut", "Incredible! You've defeated the virus boss!", 3)
+                                    game_state.start_transition("exploration", 180)
     
     keys = pygame.key.get_pressed()
     
@@ -262,17 +391,15 @@ while running:
         # Check for the specific dialog cue to spawn enemy
         current_dialog_text = ""
         
-        # Look through the pending notifications in Computer.py to find the "Look! There's a virus!" message
-        # Unfortunately we can't directly access it, so we'll rely on timing instead
-        
         # Only spawn the enemy if we've transitioned to combat but haven't spawned yet
-        if game_state.tutorial_completed and not game_state.enemy_spawned:
+        if game_state.tutorial_complete and not game_state.enemy_manager.enemy_spawned:
             # Check if we've been in combat state for at least 3 seconds (since dialog was shown)
             if pygame.time.get_ticks() - enemy_spawn_timer > 3000:
                 game_state.enemy_manager.spawn_enemy(count=1)
-                game_state.enemy_spawned = True
+                game_state.enemy_manager.enemy_spawned = True
                 print("Enemy spawned after dialog!")
         
+        # Update enemies and check for boss spawn
         game_state.enemy_manager.update_enemies()
         
         # Check for collisions with enemy attacks
@@ -282,8 +409,7 @@ while running:
                 
                 if player.health <= 0:
                     dialog_create("Tut", "Oh no! You've been defeated...", 3)
-                    # Could implement game over or restart here
-                    player.health = 100  # Reset health for now
+                    game_state.start_death_sequence()
 
     # Render everything
     if current_background:
@@ -300,12 +426,28 @@ while running:
         
     # Always draw player stats
     font = pygame.font.SysFont(None, 24)
-    health_text = font.render(f"HP: {player.health}/100", True, (255, 255, 255))
+    health_text = font.render(f"HP: {player.health}/50", True, (255, 255, 255))
     screen.blit(health_text, (10, 10))
     
     # Draw score
     score_text = font.render(f"Score: {game_state.score}", True, (255, 255, 255))
     screen.blit(score_text, (10, 35))
+    
+    # Draw death screen
+    if game_state.state == "death":
+        # Create semi-transparent overlay
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+        overlay.set_alpha(128)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
+        
+        # Draw death message
+        death_font = pygame.font.SysFont(None, 48)
+        death_text = death_font.render("YOU DIED", True, (255, 0, 0))
+        restart_text = font.render("Restarting in 5 seconds...", True, (255, 255, 255))
+        
+        screen.blit(death_text, (WINDOW_WIDTH//2 - death_text.get_width()//2, WINDOW_HEIGHT//2 - 50))
+        screen.blit(restart_text, (WINDOW_WIDTH//2 - restart_text.get_width()//2, WINDOW_HEIGHT//2 + 10))
     
     pygame.display.flip()
     
