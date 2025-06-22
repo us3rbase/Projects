@@ -27,15 +27,18 @@ def tutorial_scene():
     dialog_create("????", "My name is Tut by the way", 2)
 
 def fight_1():
-    dialog_create("Tut", "Look! There's a virus!", 3)
+    dialog_create("Tut", "Look! A cookie grabber is coming!", 3)
     dialog_create("Tut", "Move with WASD to dodge its attacks!", 3)
     dialog_create("Tut", "Press SPACE to attack when you see the red circle!", 3)
     dialog_create("Tut", "You can also use LEFT CLICK to attack!", 3)
-    return pygame.time.get_ticks() + 3000  # 3 seconds after last message
+    # Return timestamp for when enemy should spawn (after all dialogs finish)
+    # Each dialog is 3 seconds, so total time is 12 seconds from now
+    return pygame.time.get_ticks() + 12000  # 12 seconds total for all dialogs
 
 def boss_fight_intro():
     dialog_create("Tut", "Great job! But...", 2)
-    dialog_create("Tut", "The virus is mutating!", 2)
-    dialog_create("Tut", "It's becoming something more dangerous...", 2)
+    dialog_create("Tut", "A trojan virus is approaching!", 2)
+    dialog_create("Tut", "It's much more dangerous than the cookie grabber...", 2)
     dialog_create("Tut", "Be careful! This one is different!", 2)
-    return pygame.time.get_ticks() + 3000  # 3 seconds after last message
+    # Return timestamp for when boss should spawn (after all dialogs finish)
+    return pygame.time.get_ticks() + 8000  # 8 seconds total for all dialogs
