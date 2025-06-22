@@ -72,7 +72,7 @@ class Enemy:
         except pygame.error:
             print("Could not load virus image. Using colored square instead.")
             self.use_image = False
-            self.color = (255, 0, 255)  # Purple color for viruses
+            self.color = (255, 165, 0)  # Orange color for cookie grabbers
     
     def draw(self, screen):
         if not self.is_active:
@@ -176,7 +176,7 @@ class Boss(Enemy):
         self.attack_cooldown = 60  # Faster attacks
         self.attack_window_duration = 30  # Shorter attack window
         self.attack_patterns = ["linear", "sine", "zigzag", "spiral", "chaos"]  # Added chaos pattern
-        self.color = (255, 0, 0)  # Red color for boss
+        self.color = (128, 0, 128)  # Purple color for trojan viruses
         self.chaos_attack_chance = 0.2  # 20% chance for chaos attack
         
         # Load spinner animation
@@ -296,6 +296,7 @@ class EnemyManager:
         self.enemy_spawn_y = 120
         self.boss_spawn_timer = None
         self.is_boss_fight = False
+        self.enemy_spawned = False
     
     def spawn_enemy(self, count=1, is_boss=False):
         """Spawn a specified number of enemies or a boss"""
@@ -322,7 +323,7 @@ class EnemyManager:
     
     def start_boss_fight(self):
         """Start the boss fight sequence"""
-        self.boss_spawn_timer = boss_fight_intro()
+        return boss_fight_intro()
     
     def draw_enemies(self, screen):
         """Draw all active enemies and their attacks"""
